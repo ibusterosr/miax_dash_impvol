@@ -9,6 +9,89 @@ from dash import dcc
 from dash import html
 from dash.dependencies import Input, Output
 import plotly.express as px
+import math
+
+
+def norm_pdf(x):
+    """
+    Función de densidad de probabilidad normal.
+    """
+    return (1.0/(2*math.pi)**0.5)*math.exp(-0.5*x*x)
+
+def norm_cdf(x):
+    """
+    Función de distribución acumulada normal.
+    """
+    return (1.0 + math.erf(x / math.sqrt(2.0))) / 2.0
+
+def d1(S, K, r, sigma, T):
+    """
+    Cálculo del parámetro d1 para el modelo de Black-Scholes.
+    """
+    return (math.log(S/K) + (r + 0.5*sigma**2)*T) / (sigma*math.sqrt(T))
+
+def d2(S, K, r, sigma, T):
+    """
+    Cálculo del parámetro d2 para el modelo de Black-Scholes.
+    """
+    return d1(S, K, r, sigma, T) - sigma*math.sqrt(T)
+
+def bs_call_price(S, K, r, sigma, T):
+    """
+    Calcula el precio teórico de una opción de compra (call) utilizando el modelo de Black-Scholes.
+    """
+    d1 = (math.log(S/K) + (r + sigma**2/2)*T) / (sigma*math.sqrt(T))
+    d2 = d1 - sigma*math.sqrt(T)
+    N1 = 0.5*(1 + math.erf(d1/math.sqrt(2)))
+    N2 = 0.5*(1 + math.erf(d2/math.sqrt(2)))
+    return S*N1 - K*math.exp(-r*T)*N2
+
+def bs_call_implied_vol(S, K, r, T, C, tol=1e-6, max_iter=100):
+    """
+    Calcula la volatilidad implícita de una opción de compra (call) utilizando el método de Newton-Raphson.
+    """
+    sigma = 0.5 # Suposición inicial de la volatilidad implícita
+    for i in range(max_iter):
+        price = bs_call_price(S, K, r, sigma, T)
+        vega = S * math.sqrt(T) * norm_pdf(d1(S, K, r, sigma, T))
+        diff = price - C
+        if abs(diff) < tol:
+            return sigma
+        if vega == 0:
+            sigma = sigma
+        else:
+            sigma = sigma - diff / vega
+    return None
+
+
+
+def bs_put_price(S, K, r, sigma, T):
+    """
+    Cálculo del precio teórico de una opción de venta utilizando el modelo de Black-Scholes.
+    """
+    d_1 = d1(S, K, r, sigma, T)
+    d_2 = d2(S, K, r, sigma, T)
+    return K*math.exp(-r*T)*norm_cdf(-d_2) - S*norm_cdf(-d_1)
+
+def bs_put_implied_vol(S, K, r, T, P, tol=1e-6, max_iter=100):
+    """
+    Calcula la volatilidad implícita de una opción de venta (put) utilizando el método de Newton-Raphson.
+    """
+    sigma = 0.5 # Suposición inicial de la volatilidad implícita
+    for i in range(max_iter):
+        price = bs_put_price(S, K, r, sigma, T)
+        vega = S * math.sqrt(T) * norm_pdf(d1(S, K, r, sigma, T))
+        diff = price - P
+        if abs(diff) < tol:
+            return sigma
+        if vega == 0:
+            sigma = sigma
+        else:
+            sigma = sigma - diff / vega
+    return None
+
+
+
 
 url = 'https://www.meff.es/esp/Derivados-Financieros/Ficha/FIEM_MiniIbex_35'
 page = requests.get(url)
@@ -137,8 +220,11 @@ for call_key in dicc_call.keys():
     callprice = df_calc['ANT']
 
     for i in range(df_calc.shape[0]):
-        c = mibian.BS([uprice[i], strike[i], irate[i],daysexp[i]], callPrice=callprice[i])
-        dicc_call[call_key]['ImpVol'][i] = c.impliedVolatility
+        #c = mibian.BS([uprice[i], strike[i], irate[i],daysexp[i]], callPrice=callprice[i])
+        iv = bs_call_implied_vol(S=uprice[i], K=strike[i], r=0, T=daysexp[i], C=callprice[i])
+        if iv is None:
+            iv = 0
+        dicc_call[call_key]['ImpVol'][i] = iv
 
 
 
@@ -152,12 +238,16 @@ for put_key in dicc_put.keys():
     putprice = df_calc['ANT']
 
     for i in range(df_calc.shape[0]):
-        c = mibian.BS([uprice[i], strike[i], irate[i],daysexp[i]], putPrice=putprice[i])
-        dicc_put[put_key]['ImpVol'][i] = c.impliedVolatility
+        #c = mibian.BS([uprice[i], strike[i], irate[i],daysexp[i]], putPrice=putprice[i])
+        iv = bs_put_implied_vol(S=uprice[i], K=strike[i], r=0, T=daysexp[i], P=putprice[i])
+        if iv is None:
+            iv = 0
+        dicc_put[put_key]['ImpVol'][i] = iv
+        dicc_put[put_key]['ImpVol'][i] = iv
 
 
-print(dicc_call)
-print(dicc_put)
+print('OK')
+#print(dicc_put)
 
 
 
