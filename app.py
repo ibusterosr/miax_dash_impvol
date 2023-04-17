@@ -156,8 +156,8 @@ for put_key in dicc_put.keys():
         dicc_put[put_key]['ImpVol'][i] = c.impliedVolatility
 
 
-#print(dicc_call)
-#print(dicc_put)
+print(dicc_call)
+print(dicc_put)
 
 
 
