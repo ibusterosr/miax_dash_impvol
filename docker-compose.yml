@@ -2,7 +2,7 @@ version: '3'
 
 services:
   dash:
-    image: ejemplo_docker_dash
+    image: docker_dash_practica
     build: 
       context: .
       dockerfile: ./dockerfile
