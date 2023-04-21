@@ -10,6 +10,7 @@ from dash import html
 from dash.dependencies import Input, Output
 import plotly.express as px
 import math
+import os
 
 
 def norm_pdf(x):
@@ -311,4 +312,4 @@ def update_figure(option_type, option_date):
     return fig.to_html()
     
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(host='0.0.0.0', debug=True, port=os.getenv('PORT', 8080))
